@@ -19,6 +19,7 @@ export type CalendarInfo = {
   id: string; name: string; ownerId: string; ownerName: string;
   provider: string; isMock: boolean; color: string; mode: string;
   includeDescription: boolean; lastSyncedAt: string | null;
+  coverageStart?: string | null; coverageEnd?: string | null; errorCode?: string | null;
 };
 export type EventBase = {
   id: string; calendarId: string; ownerId: string; ownerName: string;

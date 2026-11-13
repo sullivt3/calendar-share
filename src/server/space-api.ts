@@ -2,7 +2,8 @@ import { auth } from "./auth";
 import { SpaceError } from "./spaces";
 import { ZodError } from "zod";
 const noStore = { "Cache-Control": "private, no-store" };
-export function spaceApi(work: (request: Request, userId: string) => Promise<unknown>) {
+type ApiSession = NonNullable<Awaited<ReturnType<typeof auth.api.getSession>>>;
+export function sessionApi(work: (request: Request, session: ApiSession) => Promise<unknown>) {
   return async (request: Request) => {
     try {
       if (request.method !== "GET") {
@@ -14,7 +15,9 @@ export function spaceApi(work: (request: Request, userId: string) => Promise<unk
       }
       const session = await auth.api.getSession({ headers: request.headers });
       if (!session) return Response.json({ error: "Unauthorized" }, { status: 401, headers: noStore });
-      return Response.json(await work(request, session.user.id) ?? { ok: true }, { headers: noStore });
+      const result = await work(request, session);
+      if (result instanceof Response) { result.headers.set("Cache-Control", "private, no-store"); return result; }
+      return Response.json(result ?? { ok: true }, { headers: noStore });
     } catch (error) {
       if (error instanceof SpaceError) return Response.json({ error: error.message }, { status: error.status, headers: noStore });
       if (error instanceof ZodError || error instanceof SyntaxError)
@@ -22,4 +25,8 @@ export function spaceApi(work: (request: Request, userId: string) => Promise<unk
       return Response.json({ error: "Unable to complete the request." }, { status: 500, headers: noStore });
     }
   };
+}
+
+export function spaceApi(work: (request: Request, userId: string) => Promise<unknown>) {
+  return sessionApi((request, session) => work(request, session.user.id));
 }

@@ -3,7 +3,7 @@
 Work in the existing Next.js modular monolith. Read docs/ARCHITECTURE.md,
 docs/ROADMAP.md and docs/IMPLEMENTATION_STATUS.md before changing scope.
 
-The user controls phase progression. Phase 3 is authorized. Stop before Phase 4 until explicitly authorized. Do not deploy or push without instruction.
+The user controls phase progression. Phase 4 is authorized. Stop before Phase 5 until explicitly authorized. Do not deploy or push without instruction.
 
 External calendars are strictly read-only. Never request write scopes or send
 event mutations to providers. Provider credentials belong only on the server,

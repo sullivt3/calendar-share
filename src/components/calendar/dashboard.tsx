@@ -7,6 +7,7 @@ import type FullCalendar from "@fullcalendar/react";
 import type { DatesSetArg } from "@fullcalendar/core";
 import { ArrowLeft, ChevronLeft, ChevronRight, SlidersHorizontal, RefreshCw, Settings2, Moon, Sun, Monitor, FlaskConical, CalendarDays, LockKeyhole } from "lucide-react";
 import type { CalendarData, CalendarRange, Preference } from "@/shared/calendar";
+import { connectionMessages } from "@/shared/connections";
 import { providerNames } from "@/shared/calendar";
 import { api } from "@/lib/api";
 import { SignOut } from "@/components/sign-out";
@@ -56,6 +57,7 @@ function CalendarView({ userId, userName, spaceId, spaceName, demoEnabled }: Pro
   const data = query.isError ? undefined : query.data;
   const events = data?.events.filter(e => !hidden.includes(e.calendarId)) ?? [];
   const selected = events.find(e => e.id === selectedId);
+  const outsideCoverage = !!range && data?.calendars.some(c => !c.isMock && c.coverageStart && c.coverageEnd && (Date.parse(range.start) < Date.parse(c.coverageStart) || Date.parse(range.end) > Date.parse(c.coverageEnd)));
   const preference = data?.preference;
   useEffect(() => {
     if (!range) return;
@@ -89,7 +91,7 @@ function CalendarView({ userId, userName, spaceId, spaceName, demoEnabled }: Pro
   }
   return <div className="calendar-shell">
     <div className="calendar-heading"><div><Link className="back-link" href="/dashboard"><ArrowLeft size={14} /> Your spaces</Link><p className="eyebrow">A little more in sync</p><h1>{data?.space.name ?? spaceName}</h1><p className="calendar-subtitle">Your schedules, side by side. More room for time together.</p></div>
-      <div className="heading-actions"><div className="member-avatars" aria-label="Space members">{data?.members.map(m => <span key={m.id} title={m.name} style={{ background: m.color }}>{m.name.charAt(0)}</span>)}</div><Link className="soft-control" href={`/spaces/${spaceId}`}><Settings2 size={17} /> Space settings</Link></div>
+      <div className="heading-actions"><Link className="soft-control" href="/connections">Accounts</Link><div className="member-avatars" aria-label="Space members">{data?.members.map(m => <span key={m.id} title={m.name} style={{ background: m.color }}>{m.name.charAt(0)}</span>)}</div><Link className="soft-control" href={`/spaces/${spaceId}`}><Settings2 size={17} /> Space settings</Link></div>
     </div>
     <div className="calendar-workspace">
       <button className="soft-control mobile-filter" aria-expanded={sidebar} aria-controls="calendar-filters" onClick={() => setSidebar(!sidebar)}><SlidersHorizontal size={16} /> Filters & calendars</button>
@@ -101,7 +103,7 @@ function CalendarView({ userId, userName, spaceId, spaceName, demoEnabled }: Pro
         <section><h2>Sources</h2><label className="sr-only" htmlFor="provider-filter">Filter by provider</label><select id="provider-filter" value={provider} onChange={e => setProvider(e.target.value)}><option value="">All providers</option>{["GOOGLE", "MICROSOFT", "APPLE", "MOCK"].map(p => <option key={p} value={p}>{providerNames[p]}</option>)}</select></section>
         <section><h2>Calendars <span>{data?.calendars.length ?? 0}</span></h2>
           {!data?.calendars.length && <p className="muted-copy">Choose calendars to share in space settings, or load your own samples below.</p>}
-          {data?.calendars.map(c => <label key={c.id} className="calendar-source"><input type="checkbox" aria-label={`Show ${c.name} for ${c.ownerName}`} checked={!hidden.includes(c.id)} onChange={() => setHidden(previous => previous.includes(c.id) ? previous.filter(id => id !== c.id) : [...previous, c.id])} style={{ accentColor: c.color }} /><span><strong>{c.name}</strong><small>{c.ownerName} · {providerNames[c.provider]}{c.isMock ? " · Sample" : ""}</small><small>{c.lastSyncedAt ? (c.isMock ? "Sample loaded " : "Last synced ") + new Date(c.lastSyncedAt).toLocaleString() : c.isMock ? "Sample data" : "Not synchronized"}</small></span></label>)}
+          {data?.calendars.map(c => <label key={c.id} className="calendar-source"><input type="checkbox" aria-label={`Show ${c.name} for ${c.ownerName}`} checked={!hidden.includes(c.id)} onChange={() => setHidden(previous => previous.includes(c.id) ? previous.filter(id => id !== c.id) : [...previous, c.id])} style={{ accentColor: c.color }} /><span><strong>{c.name}</strong><small>{c.ownerName} · {providerNames[c.provider]}{c.isMock ? " · Sample" : ""}</small><small>{c.lastSyncedAt ? (c.isMock ? "Sample loaded " : "Last synced ") + new Date(c.lastSyncedAt).toLocaleString() : c.isMock ? "Sample data" : "Not synchronized"}</small>{c.errorCode && <small>{connectionMessages[c.errorCode] ?? "Synchronization delayed"}</small>}{c.coverageStart && c.coverageEnd && <small>Recurring coverage: {new Date(c.coverageStart).toLocaleDateString()} – {new Date(c.coverageEnd).toLocaleDateString()}</small>}</span></label>)}
         </section>
         {demoEnabled && <section className="sample-loader"><FlaskConical size={20} /><strong>Try a shared rhythm</strong><p>Load three sample calendars for your account. They start private, and never connect to a provider.</p><button className="soft-control" disabled={pending} onClick={async () => {
           setPending(true); setError("");
@@ -122,7 +124,8 @@ function CalendarView({ userId, userName, spaceId, spaceName, demoEnabled }: Pro
           </div>
         </div>
         <div className="calendar-status"><span><i className={connected ? "status-dot online" : "status-dot"} />{connected ? "Live view connected" : "Reconnecting live view"}</span><span><LockKeyhole size={13} /> Read-only</span><span>{data?.calendars.some(c => c.isMock) ? "Sample calendars · No live accounts connected" : "Only calendars shared with you appear here"}</span></div>
-        {data?.calendars.some(c => c.isMock) && <div className="sample-banner"><FlaskConical size={15} /> Sample data is clearly labeled. Google, Outlook and Apple connections arrive in later phases.</div>}
+        {data?.calendars.some(c => c.isMock) && <div className="sample-banner"><FlaskConical size={15} /> Sample data is clearly labeled. Google accounts can be connected from Accounts; Outlook and Apple are planned.</div>}
+        {outsideCoverage && <div className="sample-banner">This view extends beyond downloaded Google recurring-event coverage. Check the coverage dates in the sidebar.</div>}
         {error && <p className="calendar-error" role="alert">{error}</p>}
         {query.isError && <p className="calendar-error" role="alert">{query.error.message}<button className="text-control" onClick={() => void query.refetch()}>Try again</button></p>}
         {query.isFetching && <div className="loading-line" role="status">Updating your view…</div>}

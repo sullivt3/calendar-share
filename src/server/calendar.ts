@@ -1,4 +1,5 @@
 import { db } from "./db";
+import { visibleCalendarWhere } from "./calendar-access";
 import { SpaceError, lock, member } from "./spaces";
 import { projectEvent } from "./event-projection";
 import { rangeSchema, type CalendarRange, type CalendarInfo, type CalendarData } from "../shared/calendar";
@@ -14,11 +15,9 @@ export async function calendarData(userId: string, spaceId: string, input: Calen
     const members = space.members.map(({ user }, i) => ({
       id: user.id, name: user.name, color: user.preference?.displayColor ?? (i === 0 ? "#2563eb" : "#8b5cf6"),
     }));
-    const raw = await tx.calendar.findMany({ where: { OR: [
-      { connection: { userId } },
-      { connection: { user: { memberships: { some: { spaceId } } } }, shares: { some: { spaceId, mode: { not: "NOT_SHARED" } } } },
-    ] }, select: {
-      id: true, name: true, mockProvider: true, lastSyncedAt: true,
+    const raw = await tx.calendar.findMany({ where: visibleCalendarWhere(userId, spaceId), select: {
+      id: true, name: true, mockProvider: true, lastSyncedAt: true, lastErrorCode: true,
+      syncState: { select: { windowStart: true, windowEnd: true } },
       connection: { select: { userId: true, provider: true } },
       shares: { where: { spaceId }, select: { mode: true, includeDescription: true } },
     }, orderBy: { id: "asc" } });
@@ -29,10 +28,11 @@ export async function calendarData(userId: string, spaceId: string, input: Calen
         id: c.id, name: c.name, ownerId: owner.id, ownerName: owner.name, color: owner.color,
         provider: c.mockProvider ?? c.connection.provider, isMock: c.connection.provider === "MOCK",
         mode: c.shares[0]?.mode ?? "NOT_SHARED", includeDescription: c.shares[0]?.includeDescription ?? false,
-        lastSyncedAt: c.lastSyncedAt?.toISOString() ?? null,
+        lastSyncedAt: c.lastSyncedAt?.toISOString() ?? null, errorCode: c.lastErrorCode,
+        coverageStart: c.syncState?.windowStart?.toISOString() ?? null, coverageEnd: c.syncState?.windowEnd?.toISOString() ?? null,
       };
     });
-    const selected = calendars.filter(c => (!range.person || range.person === c.ownerId) &&
+    const selected = calendars.filter(c => (c.isMock || c.lastSyncedAt) && (!range.person || range.person === c.ownerId) &&
       (!range.calendar || range.calendar === c.id) && (!range.provider || range.provider === c.provider));
     const events = await tx.event.findMany({ where: {
       calendarId: { in: selected.map(c => c.id) }, cancelled: false,

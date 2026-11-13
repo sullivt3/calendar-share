@@ -18,6 +18,7 @@ model User {
   memberships   SharedSpaceMember[]
   connections   ProviderConnection[]
   preference    UserPreference?
+  oauthAttempts OAuthAttempt[]
   @@map("users")
 }
 model Session {
@@ -30,6 +31,7 @@ model Session {
   userAgent String?
   userId    String   @db.Uuid
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  oauthAttempts OAuthAttempt[]
   @@index([userId])
   @@index([expiresAt])
   @@map("sessions")
@@ -112,7 +114,7 @@ model Invitation {
   @@index([spaceId])
   @@map("invitations")
 }
-// Metadata only in Phase 2. Credential storage and connection APIs arrive later.
+// Provider credentials remain encrypted and are never serialized to clients.
 model ProviderConnection {
   id         String @id @default(uuid()) @db.Uuid
   userId     String @db.Uuid
@@ -120,6 +122,19 @@ model ProviderConnection {
   externalId String
   user       User @relation(fields: [userId], references: [id], onDelete: Cascade)
   calendars  Calendar[]
+  accountLabel String?
+  status ConnectionStatus @default(CONNECTED)
+  credentialCiphertext String?
+  grantedScopes String?
+  lastErrorCode String?
+  nextDiscoveryAt DateTime @default(now())
+  nextAllowedAt DateTime @default(now())
+  lastManualSyncAt DateTime?
+  leaseToken String? @db.Uuid
+  leaseUntil DateTime?
+  jobs SyncJob[]
+  subscriptions SyncSubscription[]
+  @@index([provider, status, nextDiscoveryAt])
   @@unique([userId, provider, externalId])
   @@map("provider_connections")
 }
@@ -133,6 +148,17 @@ model Calendar {
   events       Event[]
   mockProvider Provider?
   lastSyncedAt DateTime?
+  timeZone String @default("UTC")
+  isEnabled Boolean @default(true)
+  syncEnabled Boolean @default(false)
+  nextSyncAt DateTime @default(now())
+  nextWatchAt DateTime @default(now())
+  lastErrorCode String?
+  syncState SyncState?
+  sourceEvents SourceEvent[]
+  subscriptions SyncSubscription[]
+  jobs SyncJob[]
+  @@index([syncEnabled, nextSyncAt])
   @@unique([connectionId, externalId])
   @@map("calendars")
 }
@@ -184,4 +210,106 @@ model UserPreference {
   theme        String @default("SYSTEM")
   user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@map("user_preferences")
+}
+
+enum ConnectionStatus {
+  CONNECTED
+  ERROR
+  REAUTH_REQUIRED
+  DISCONNECTING
+  DISCONNECTED
+}
+enum SyncJobKind {
+  DISCOVER
+  SYNC
+  WATCH
+  DISCONNECT
+}
+enum SyncJobStatus {
+  PENDING
+  RUNNING
+  FAILED
+}
+enum SyncPhase {
+  IDLE
+  FETCH
+  MATERIALIZE
+}
+model OAuthAttempt {
+  id String @id @default(uuid()) @db.Uuid
+  userId String @db.Uuid
+  sessionId String @db.Uuid
+  stateHash String @unique
+  browserHash String
+  verifierCiphertext String
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  session Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  @@index([userId, createdAt])
+  @@index([expiresAt])
+  @@map("oauth_attempts")
+}
+model SyncState {
+  calendarId String @id @db.Uuid
+  phase SyncPhase @default(IDLE)
+  syncTokenCiphertext String?
+  pageTokenCiphertext String?
+  pendingTokenCiphertext String?
+  snapshotId String? @db.Uuid
+  fullSync Boolean @default(false)
+  pageCount Int @default(0)
+  targetWindowStart DateTime?
+  targetWindowEnd DateTime?
+  windowStart DateTime?
+  windowEnd DateTime?
+  lastSuccessAt DateTime?
+  calendar Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  @@map("sync_states")
+}
+model SourceEvent {
+  id String @id @default(uuid()) @db.Uuid
+  calendarId String @db.Uuid
+  externalId String
+  payload Json
+  snapshotId String? @db.Uuid
+  dirty Boolean @default(true)
+  calendar Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  @@unique([calendarId, externalId])
+  @@index([calendarId, dirty])
+  @@map("source_events")
+}
+model SyncJob {
+  id String @id @default(uuid()) @db.Uuid
+  connectionId String @db.Uuid
+  calendarId String? @db.Uuid
+  kind SyncJobKind
+  dedupeKey String @unique
+  status SyncJobStatus @default(PENDING)
+  runAt DateTime @default(now())
+  attempts Int @default(0)
+  requestVersion Int @default(1)
+  claimedVersion Int @default(0)
+  leaseToken String? @db.Uuid
+  leaseUntil DateTime?
+  lastErrorCode String?
+  updatedAt DateTime @updatedAt
+  connection ProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  calendar Calendar? @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  @@index([status, runAt])
+  @@map("sync_jobs")
+}
+model SyncSubscription {
+  id String @id @default(uuid()) @db.Uuid
+  connectionId String @db.Uuid
+  calendarId String @db.Uuid
+  tokenHash String
+  resourceId String?
+  expiresAt DateTime
+  status String @default("PENDING")
+  lastMessage BigInt @default(0)
+  connection ProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  calendar Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  @@index([calendarId, expiresAt])
+  @@map("sync_subscriptions")
 }

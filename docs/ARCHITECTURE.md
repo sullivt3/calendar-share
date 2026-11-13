@@ -170,3 +170,51 @@ Sources:
 - https://fullcalendar.io/docs/react
 - https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation
 - https://www.radix-ui.com/primitives/docs/components/dialog
+
+## Phase 4 — Google ingestion
+
+Google is the first implemented provider. Application sessions and provider
+identity remain separate. OAuth uses a short-lived, single-use state record bound
+to the actual user/session and an HTTP-only browser nonce. PKCE verifiers,
+credentials and sync cursors use versioned AES-256-GCM with purpose/record AAD.
+The callback redirects only to fixed account-page outcomes, without reflecting
+provider errors or codes. OAuth callback query logging is suppressed locally.
+
+Owner-only account endpoints handle discovery, import selection and disconnect.
+Sharing writes lock the owning connection after the space, serializing with
+provider cleanup so concurrent requests cannot restore removed permissions.
+Selection never creates a share. Authorization reads exclude unselected,
+disconnected, revoked or invalid-data calendars, and initial event imports stay
+hidden until successful completion. Existing server-side sharing/private-event
+projection and SSE invalidation apply to Google events too.
+
+The worker claims PostgreSQL jobs with SKIP LOCKED and a connection-wide lease,
+serializing token refresh and provider operations per connection. All writes
+recheck a fencing token and lease expiry. Lock order is connection then job.
+Heartbeats extend two-minute leases; a crashed worker can be reclaimed.
+Request/claimed versions preserve notifications arriving while a job runs.
+Failures persist bounded exponential jitter/backoff and provider Retry-After.
+
+SourceEvent stores allowlisted Google source records, including recurrence
+masters/exceptions/tombstones. Event stores the normalized view. Page checkpoints
+survive worker failure; the new sync cursor is committed only after successful
+materialization. Recurrences expand through Google's authoritative instances API
+within a rolling 183-day past/548-day future window. An expired cursor clears
+local data and performs a full replacement import. Full imports prune absent
+records; delta updates delete cancelled instances/series idempotently.
+
+Notifications verify channel ID, hashed secret, resource ID, expiry, account and
+calendar state, and increasing message numbers. A pending channel exists before
+the watch request, accepting Google's early sync callback. Renewal retires old
+channels. Unknown transport outcomes retain pending IDs to avoid duplicates;
+periodic sync continues. Scheduling reconciles every 15 minutes and discovers
+calendars every six hours. Disconnect hides/purges local event access immediately,
+then durably stops channels/revokes the grant and purges credentials. Terminal
+revocation failures purge local credentials and surface external-removal guidance.
+
+The GoogleGateway interface is injectable in automated tests; runtime provider
+URLs are fixed to Google. There is no runtime fake-Google switch. No Google
+credentials/public notification endpoint were available, so live provider
+acceptance remains pending. See GOOGLE_SETUP.md for configuration, limits,
+key rotation and credentialed acceptance checks. This supersedes the earlier
+phase-specific statements that all provider ingestion is future work.

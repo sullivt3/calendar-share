@@ -25,11 +25,12 @@ authorizes starting the next one.
 - [x] SSE invalidation contract and isolation tests
 
 ## Phase 4 — Google
-- [ ] Read-only OAuth with state/PKCE, encrypted credentials and refresh
-- [ ] Discovery/selection, recurrence and incremental event normalization
-- [ ] Durable jobs, webhook verification/channel renewal and reconciliation
-- [ ] Invalid cursor, deletion, duplicate, retry and quota tests
-- [ ] Live updates and credentialed provider validation when available
+- [x] Read-only OAuth with state/PKCE, encrypted credentials and refresh
+- [x] Discovery/selection, recurrence and incremental event normalization
+- [x] Durable jobs, webhook verification/channel renewal and reconciliation
+- [x] Invalid cursor, deletion, duplicate, retry and quota tests
+- [x] Integration with existing authorized dashboard/SSE updates
+- [ ] Credentialed provider validation (unavailable; user chose mocked tests)
 
 ## Phase 5 — Microsoft
 - [ ] Personal/work OAuth, read-only Graph access and policy errors

@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { db } from "./db";
+import { visibleCalendarWhere, activeCalendarWhere } from "./calendar-access";
 import { Prisma, type SharingMode } from "../generated/prisma/client";
 
 export class SpaceError extends Error {
@@ -89,7 +90,11 @@ export async function leaveSpace(userId: string, spaceId: string) {
 export async function setSharing(userId: string, spaceId: string, calendarId: string, mode: SharingMode, includeDescription = false) {
   return db.$transaction(async tx => {
     await lock(tx, spaceId); await member(tx, userId, spaceId);
-    if (!await tx.calendar.findFirst({ where: { id: calendarId, connection: { userId } } }))
+    // Serialize permission changes with provider deselection/disconnection so an
+    // in-flight sharing request cannot recreate a permission after cleanup.
+    await tx.$queryRaw`SELECT c.id FROM provider_connections c JOIN calendars k ON k."connectionId" = c.id
+      WHERE k.id = ${calendarId}::uuid AND c."userId" = ${userId}::uuid FOR UPDATE OF c`;
+    if (!await tx.calendar.findFirst({ where: { AND: [activeCalendarWhere, { id: calendarId, connection: { userId } }] } }))
       throw new SpaceError(404, "Calendar not found.");
     await tx.calendarShare.upsert({
       where: { calendarId_spaceId: { calendarId, spaceId } },
@@ -101,10 +106,7 @@ export async function visibleCalendars(userId: string, spaceId: string) {
   return db.$transaction(async tx => {
     await lock(tx, spaceId); await member(tx, userId, spaceId);
     const calendars = await tx.calendar.findMany({
-      where: { OR: [
-        { connection: { userId } },
-        { connection: { user: { memberships: { some: { spaceId } } } }, shares: { some: { spaceId, mode: { not: "NOT_SHARED" } } } },
-      ] },
+      where: visibleCalendarWhere(userId, spaceId),
       select: {
         id: true, name: true,
         connection: { select: { userId: true, provider: true, user: { select: { name: true } } } },
