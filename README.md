@@ -4,9 +4,23 @@ A shared calendar for users who connect their external calendars from Outlook,
 Google, and Apple. The application will provide a strictly read-only combined
 view: all event changes stay in the original provider.
 
-**Current release: Phase 1 foundation.** Registration, login, logout and a
-protected account page work. Shared spaces, events and provider connections are
-planned; this release does not connect to live calendars.
+**Current release: Phase 2 shared accounts.** Registration, login/logout,
+private shared spaces, invitations, membership and calendar-sharing permissions
+are implemented. Events and provider connections are planned; this release does
+not connect to live calendars.
+
+After login, create a space from your account dashboard. Generate a private
+invitation link from its settings page and share it with one other person.
+Invitations expire in 24 hours and work once; issuing another link replaces the
+previous one. The recipient can log in or register in the same tab before
+accepting. Either member can rename or leave the space. Leaving removes their
+shares and invalidates invitation links; the last departure deletes the space.
+
+Calendar sharing settings start empty until provider integrations arrive.
+When calendars exist, their owner can choose Not shared, Busy only or Full
+details independently for each space. Calendars are private by default.
+Phase 2 tests exercise these rules using MOCK metadata, without pretending
+that provider connections or an event dashboard are available.
 
 ## Start with Docker
 
@@ -96,8 +110,12 @@ PLAYWRIGHT_BASE_URL=http://localhost:3000 npm run test:e2e
 ```
 
 Use the same disposable database environment for the app and browser test
-cleanup. Desktop and mobile Chromium flows cover register/login/logout and
-protected navigation. Browser traces may contain test input: use test-only
+cleanup. Browser tests require a database name ending in `_browser`; they
+reset auth rate-limit counters between cases to keep test users independent.
+This reset is guarded against ordinary database names. Integration tests
+exercise rate-limit enforcement separately. Desktop and mobile Chromium flows cover register/login/logout,
+protected navigation, and two separate users creating/joining/renaming/leaving
+a shared space. Browser traces may contain test input: use test-only
 passwords and do not upload traces containing real credentials.
 
 For Docker-only checks, `docker compose exec app npm run <script>` runs tooling

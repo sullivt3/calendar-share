@@ -12,10 +12,10 @@ authorizes starting the next one.
 - [x] Auth unit/integration/browser tests, lint, types and production build
 
 ## Phase 2 — Shared accounts
-- [ ] Private spaces and transactional two-member limit
-- [ ] Expiring, hashed, single-use invitations and acceptance
-- [ ] Membership management and leave flow
-- [ ] Calendar sharing policies and cross-space authorization tests
+- [x] Private spaces and transactional two-member limit
+- [x] Expiring, hashed, single-use invitations and acceptance
+- [x] Membership management and leave flow
+- [x] Calendar sharing policies and cross-space authorization tests
 
 ## Phase 3 — Calendar dashboard
 - [ ] FullCalendar month/week/day/agenda and responsive sidebar

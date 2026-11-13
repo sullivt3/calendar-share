@@ -78,3 +78,46 @@ Use patched Prisma 7.10.1, Vitest 5 and a scoped minimatch override for the
 TypeScript ESLint parser dependency. Retain the override until its upstream
 range includes the patched release, then remove it and re-run lint/audit.
 The lockfile is required; use npm ci for reproducible installation.
+
+## Phase 2 — shared accounts
+
+Private spaces have equal members, with a two-person service limit and UUID
+membership keys ready for a future larger limit. Either member can rename the
+space or leave; members cannot remove someone else. Leaving removes the
+departing owner's shares, invalidates every outstanding invitation, and deletes
+the space if no members remain.
+
+All membership, invitation and sharing operations serialize on the space row
+with PostgreSQL SELECT FOR UPDATE, then re-check membership inside the same
+transaction. Concurrent invitation acceptance cannot admit a third member or
+consume a token twice. Reads of private space/calendar metadata use the same
+lock, so successful revocation is reflected in subsequent queries.
+See https://www.postgresql.org/docs/current/explicit-locking.html.
+
+Invitations use 256-bit random bearer tokens. Only a SHA-256 hash is persisted.
+Links expire after 24 hours, are single-use, and new issuance replaces old links.
+The raw token is returned only at issuance, in a no-store response. It travels
+in the invitation URL fragment so HTTP access logs/referrers do not receive it.
+The invitation page moves it to same-tab sessionStorage and removes the
+fragment. Login/registration accept only the fixed /invite return destination;
+no external redirect targets are accepted. Successful acceptance clears the
+stored token. Send invitation links through a private channel.
+
+Phase 2 creates provider_connections and calendars as metadata tables only,
+plus per-space calendar_shares. Provider credentials and connection workflows
+remain unimplemented. No share row means NOT_SHARED. Only the owner can change
+a calendar's sharing. Peer queries require current membership for both caller
+and owner and a non-private share in this specific space. There is no event
+data yet: server-side private-event redaction is a Phase 3 requirement.
+Automated sharing tests create clearly labeled MOCK metadata directly in their
+disposable database; the production UI does not invent connected calendars.
+
+Space REST routes validate sessions, UUIDs and Zod request schemas; mutations
+require the configured request origin and JSON. Responses are private/no-store.
+No invitation, calendar or membership credential is accepted as an actor ID
+from the browser; the actor always comes from the verified session.
+
+Space creation navigates directly to its new URL. Membership acceptance and
+departure reload the destination from the server, discarding client page state
+from before the membership change. Ordinary name/sharing changes refresh the
+current page. Calendar event updates will use SSE/query invalidation in Phase 3.

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { loginSchema, registrationSchema } from "@/shared/auth";
 import { Button } from "./ui/button";
-export function AuthForm({ mode }: { mode: "login" | "register" }) {
+export function AuthForm({ mode, redirectTo = "/dashboard" }: { mode: "login" | "register"; redirectTo?: "/dashboard" | "/invite" }) {
   const router = useRouter();
   const register = mode === "register";
   const [error, setError] = useState("");
@@ -23,7 +23,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         : await authClient.signIn.email(parsed.data);
       if (result.error) {
         setError(result.error.status === 429 ? "Too many attempts. Please try again in a minute." : register ? "Unable to create your account. Check your details or try logging in." : "Unable to log in. Check your email and password.");
-      } else { router.replace("/dashboard"); router.refresh(); }
+      } else { router.replace(redirectTo); router.refresh(); }
     } catch { setError("Unable to connect. Please try again."); }
     finally { setPending(false); }
   }
@@ -39,6 +39,6 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
       {error && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <Button className="w-full" disabled={pending} type="submit">{pending ? "Please wait…" : register ? "Create account" : "Log in"}</Button>
     </form>
-    <p className="mt-6 text-center text-sm text-slate-600">{register ? "Already have an account?" : "New here?"} <Link className="font-semibold text-blue-600 underline-offset-4 hover:underline" href={register ? "/login" : "/register"}>{register ? "Log in" : "Create an account"}</Link></p>
+    <p className="mt-6 text-center text-sm text-slate-600">{register ? "Already have an account?" : "New here?"} <Link className="font-semibold text-blue-600 underline-offset-4 hover:underline" href={(register ? "/login" : "/register") + (redirectTo === "/invite" ? "?next=/invite" : "")}>{register ? "Log in" : "Create an account"}</Link></p>
   </section>;
 }

@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { db } from "../../src/server/db";
+import { resetAuthLimits } from "./database";
+test.beforeEach(resetAuthLimits);
 test("registration, protected account and logout", async ({ page, request }) => {
   const email = `browser-${randomUUID()}@example.test`;
   try {
