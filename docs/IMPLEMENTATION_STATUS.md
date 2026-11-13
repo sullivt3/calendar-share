@@ -2,63 +2,68 @@
 
 ## Active scope
 
-Phase 1 was committed as 862174e. Phase 2 is complete and verified. Stop before Phase 3 until explicitly authorized.
+Phase 2 committed and pushed as dd1aeec (including the earlier Phase 1 commit).
+Phase 3 is complete and verified. All 40 automated tests passed.
+Stop before Phase 4 until explicitly authorized.
 
-## Phase 2 implemented
+## Phase 3 implemented
 
-- Private shared spaces, names, equal membership and a two-member limit.
-- 24-hour expiring, hashed, single-use invitations, replacement and revocation.
-- Same-tab invitation continuity through login and registration.
-- Transactional acceptance and row locking for concurrent requests.
-- Leave flow with confirmation, share cleanup and last-member space deletion.
-- Provider/calendar metadata and per-space sharing modes, private by default.
-- Owner-only sharing updates and current-member filtering on every query.
-- Authenticated, origin-validated, no-store REST APIs and working settings pages.
-
-No live calendars are connected. Calendar sharing settings show an honest empty
-state until provider integrations arrive. Tests use MOCK calendar metadata.
-Event views and busy-only event redaction belong to Phase 3.
+- FullCalendar month/week/day/agenda views, navigation and responsive sidebar.
+- Person/provider/calendar filters and person colors with blue/purple defaults.
+- Accessible read-only event dialogs, source labels and timezone display.
+- Persisted appearance preferences, dark/light/system themes.
+- Database event schema and server-side privacy projection, including a separate
+  description-sharing opt-in and provider-private event restrictions.
+- Explicit opt-in, labeled development samples that remain private by default.
+- Authenticated SSE invalidations, automatic query revalidation, fallback refresh
+  and client cache clearing after invalidation/revocation.
 
 ## Verification
 
-- Phase 1: 6 unit, 3 integration and 2 browser tests passed; lint, types,
-  production build, Docker startup and dependency audit passed.
-- Phase 2: 9 real-database/API tests passed, including concurrent acceptance,
-  expiration/replay/replacement/revocation, cross-user and cross-space isolation,
-  sharing revocation, departure cleanup, origin/session/input boundaries.
-- Phase 2 unit tests: 8 passed (including the foundation tests).
-- Phase 2 integration tests: 9 passed (including the foundation tests).
-- Desktop/mobile Playwright: all 4 cases passed in the final serial run.
-  Two independent browser accounts create/join/rename/leave a space, exercise
-  busy-only calendar sharing, revoke it, and verify access after departure.
-- ESLint and strict TypeScript: passed with no warnings/errors.
-- Final production build: passed, including route tracing.
-- Docker image build and fresh-database migration/startup/readiness: passed.
+- Unit tests: all 16 passed.
+- Real-database/API tests: all 18 passed, including event privacy, cross-space
+  isolation, revocation, date bounds/DST, description permissions, mock idempotency,
+  production mock blocking, SSE payload privacy/session revocation and preferences.
+- Dependency audit: zero known vulnerabilities.
+- Lint and strict TypeScript checks passed, including the final auth/theme fixes.
+- All 6 desktop/mobile Chromium browser cases passed, including Phase 1–2
+  regression flows, all calendar views, filtering, privacy, preferences, live
+  creation/change/deletion visibility and membership revocation.
+- Both focused calendar cases passed again with fully loaded screenshots.
+  Desktop month and mobile agenda screenshots were visually reviewed; a
+  dark-mode logout contrast issue was corrected.
+- Docker image build, additive migration, startup and health checks passed.
+- Final production build passed, including route tracing, after the auth
+  navigation, theme bootstrap and dark-mode contrast corrections.
+- SSE creation/deletion invalidation assertions also passed in a focused rerun.
 
-Build and browser checks use isolated filesystems and run serially for the
-final verification to avoid cold-compilation contention in Docker.
-Navigation after space creation avoids a competing refresh; membership changes
-reload their destination to discard stale client page state.
-Browser cases require a disposable database ending in _browser and reset only
-its auth-rate counters between cases. Integration tests separately verify
-actual rate-limit enforcement. Calendar fixtures are explicitly MOCK.
+Authentication now uses a fresh navigation after successful login/registration
+and logout, preventing a late refresh from restoring the previous route/user's
+client state. The browser query cache remains memory-only and user scoped.
 
-No Phase 2 blockers remain. Phase 3 has not started.
+## Local use
 
-## Resume and local setup
+Read README.md. Run docker compose up --build -d and seed the two demo accounts.
+Set ENABLE_MOCK_CALENDARS=true for local samples, then load them explicitly from
+the calendar sidebar. Share each sample calendar in space settings to expose it
+to the other member. No provider credentials or live integrations are used.
 
-Read AGENTS.md and docs/ROADMAP.md. Use docker compose up --build -d.
-Local secrets are in ignored .env; demo accounts alex@example.test and
-sam@example.test use its DEMO_PASSWORD value. The seed does not pre-join accounts
-or create live calendars. Phase 1 is committed locally as 862174e. Phase 2 changes are local and
-uncommitted. Nothing has been pushed for these implementation phases.
-Temporary test databases/services are removed after verification. The
-development database, migration history and demo accounts are preserved.
+The existing sandbox at /private/tmp/calendar-share-sandbox-luk8kcc9 is upgraded
+to Phase 3 at http://localhost:3100. Its accounts, environment secrets and test
+data are preserved, and both original demo logins/private-space reads passed
+smoke checks. Samples are enabled but must be loaded explicitly by each user.
+Credentials are unchanged; see the sandbox's SANDBOX.md.
 
-## Future phases
+Before migration, the database was backed up (restricted file permissions) to
+/private/tmp/calendar-share-sandbox-luk8kcc9-backups/before-phase3.sql. The prior
+image remains tagged calendar-share-sandbox:luk8kcc9-phase2.
 
-Phase 3: FullCalendar, event projection/privacy, filters, mock events and SSE.
-Phases 4–6: real provider workflows, encrypted credentials and synchronization.
-Phase 7: production deployment, CI, PWA, recovery and public auth hardening.
-The foundation worker does not synchronize events. Email verification and
-password recovery remain production gates.
+## Handoff
+
+No Phase 3 blockers remain. Phase 4 has not started.
+Phase 3 changes are local and uncommitted. No Phase 3 work has been pushed.
+Disposable verification databases/services were removed; the user sandbox and
+its backup remain available.
+Real provider integration, durable sync jobs and webhook ingestion belong to
+Phases 4–6. Worker does not synchronize providers. PWA, production deployment,
+email verification/recovery and further hardening remain Phase 7.

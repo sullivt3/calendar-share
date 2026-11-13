@@ -121,3 +121,52 @@ Space creation navigates directly to its new URL. Membership acceptance and
 departure reload the destination from the server, discarding client page state
 from before the membership change. Ordinary name/sharing changes refresh the
 current page. Calendar event updates will use SSE/query invalidation in Phase 3.
+
+## Phase 3 — calendar and privacy
+
+Events preserve UTC instants, all-day exclusive date bounds, original timezone,
+privacy, source IDs/versions and recurrence metadata. Provider normalization
+and full recurrence expansion remain provider-phase tasks. The browser gets a
+purpose-built projection, never raw database records. Owner events expose own
+details; peer events require current membership, a selected calendar share and
+PUBLIC provider privacy. BUSY_ONLY/PRIVATE/CONFIDENTIAL projections omit title,
+location, description and recurrence metadata. Full-detail descriptions require
+a separate includeDescription opt-in. No event write endpoints exist.
+
+The REST event service enforces membership and sharing inside a transaction
+locked on the space, then applies bounded date filters (93 days/2,000 events).
+All-day queries compare calendar dates; timed queries compare UTC instants.
+Filters never grant visibility. Metadata includes source labels and person
+colors, with blue/purple defaults and validated, per-user color preferences.
+
+SSE is an authenticated stream of empty invalidation signals. It polls a hash of
+the same authorized projection every three seconds. The hash is never sent to
+the browser. A private title change that does not change the peer projection
+does not trigger an invalidation for that peer. Every poll checks session and
+membership again. A revoked connection clears browser state and leaves the
+space view. Abort/cancel removes timers; five-minute connection lifetimes force
+regular reconnects. There is no process-local message bus to lose updates across
+web/worker processes. PostgreSQL is the shared source of truth. This polling
+approach suits the initial two-person app; optimize transport fanout only after
+measuring load. Reverse proxies must disable buffering on stream routes.
+
+TanStack Query caches are memory-only, scoped to user, space, range and filters,
+and destroyed on unmount/logout. Invalidations reset data before revalidation,
+including open detail dialogs. Errors never render stale event details. A
+one-minute/focus refetch recovers missed stream messages. FullCalendar 6 provides
+month/week/day/list views with all editing/dragging/selection disabled. Native
+event buttons and Radix dialogs provide keyboard access, focus trapping, Escape
+and focus restoration. Event descriptions/locations render as escaped text.
+Theme preferences are server-owned; only the selected theme is in localStorage.
+
+Mock loading is explicitly enabled by ENABLE_MOCK_CALENDARS and always blocked
+in production. It upserts marked owner-only MOCK connections and sample Google,
+Outlook and Apple calendar metadata with materialized weekly instances and
+private appointments. It never creates shares or touches a live provider.
+Calendar.mockProvider is only a display label on MOCK connections.
+The worker remains a foundation process: no external provider sync is claimed.
+
+Sources:
+- https://fullcalendar.io/docs/react
+- https://tanstack.com/query/latest/docs/framework/react/guides/query-invalidation
+- https://www.radix-ui.com/primitives/docs/components/dialog

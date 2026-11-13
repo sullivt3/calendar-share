@@ -1,0 +1,21 @@
+import { randomUUID } from "node:crypto";
+import { afterAll, expect, it } from "vitest";
+import { auth } from "../../src/server/auth";
+import { db } from "../../src/server/db";
+import { PATCH } from "../../src/app/api/preferences/route";
+const ids: string[] = [];
+const origin = process.env.BETTER_AUTH_URL ?? "http://localhost:3000";
+afterAll(async () => { await db.user.deleteMany({ where: { id: { in: ids } } }); await db.$disconnect(); });
+it("isolates appearance preferences by authenticated actor", async () => {
+  const email = `preferences-${randomUUID()}@example.test`;
+  const created = await auth.api.signUpEmail({ body: { email, name: "Preferences", password: "preference-only-password" }, asResponse: true });
+  const user = await db.user.findUniqueOrThrow({ where: { email } }); ids.push(user.id);
+  const other = await db.user.create({ data: { email: `preferences-other-${randomUUID()}@example.test`, name: "Other" } }); ids.push(other.id);
+  const cookie = created.headers.getSetCookie().map(v => v.split(";")[0]).join("; ");
+  const request = (body: unknown, loggedIn = true) => new Request(origin + "/api/preferences", { method: "PATCH", headers: { origin, "Content-Type": "application/json", ...(loggedIn ? { cookie } : {}) }, body: JSON.stringify(body) });
+  expect((await PATCH(request({ theme: "DARK" }, false))).status).toBe(401);
+  expect((await PATCH(request({ displayColor: "invalid" }))).status).toBe(400);
+  expect((await PATCH(request({ userId: other.id, displayColor: "#aa33dd", theme: "DARK" }))).status).toBe(200);
+  expect(await db.userPreference.findUnique({ where: { userId: other.id } })).toBeNull();
+  expect(await db.userPreference.findUnique({ where: { userId: user.id } })).toMatchObject({ displayColor: "#aa33dd", theme: "DARK" });
+});

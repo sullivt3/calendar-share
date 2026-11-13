@@ -1,10 +1,8 @@
 "use client";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "./ui/button";
-export function SignOut() {
-  const router = useRouter();
+export function SignOut({ onSignedOut }: { onSignedOut?: () => void } = {}) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   return <div><Button variant="outline" disabled={pending} onClick={async () => {
@@ -12,7 +10,7 @@ export function SignOut() {
     try {
       const result = await authClient.signOut();
       if (result.error) { setError("Unable to log out. Please try again."); return; }
-      router.replace("/login"); router.refresh();
+      onSignedOut?.(); window.location.replace("/login");
     } catch { setError("Unable to connect. Please try again."); }
     finally { setPending(false); }
   }}>{pending ? "Logging out…" : "Log out"}</Button>{error && <p role="alert">{error}</p>}</div>;

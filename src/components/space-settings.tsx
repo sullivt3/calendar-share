@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "./ui/button";
 import { api } from "@/lib/api";
-type Calendar = { id: string; name: string; ownerId: string; ownerName: string; provider: string; mode: string };
+type Calendar = { id: string; name: string; ownerId: string; ownerName: string; provider: string; mode: string; includeDescription: boolean };
 type Space = { id: string; name: string; members: { user: { id: string; name: string } }[]; invitations: { id: string; expiresAt: string }[] };
 export function SpaceSettings({ space, userId, calendars }: { space: Space; userId: string; calendars: Calendar[] }) {
   const router = useRouter();
@@ -19,7 +19,8 @@ export function SpaceSettings({ space, userId, calendars }: { space: Space; user
   }
   const base = `/api/spaces/${space.id}`;
   return <div className="mx-auto mt-8 max-w-3xl space-y-8">
-    <Link className="text-sm text-blue-700 underline" href="/dashboard">← Your spaces</Link>
+    <div className="flex flex-wrap justify-between gap-4"><Link className="text-sm text-blue-700 underline" href="/dashboard">← Your spaces</Link>
+      <Link className="text-sm font-semibold text-blue-700 underline" href={`/spaces/${space.id}/calendar`}>Open shared calendar →</Link></div>
     <section className="rounded-3xl border border-slate-200 bg-white p-7">
       <p className="text-sm font-semibold text-blue-600">Private shared space</p><h1 className="mt-3 text-3xl font-semibold">{space.name}</h1>
       <form method="post" className="mt-6 space-y-3" onSubmit={e => { e.preventDefault(); const name = new FormData(e.currentTarget).get("name"); void run(async () => { await api(base, "PATCH", { name }); }); }}>
@@ -42,12 +43,16 @@ export function SpaceSettings({ space, userId, calendars }: { space: Space; user
       {(space.invitations.length > 0 || link) && <Button className="mt-4" variant="outline" disabled={pending} onClick={() => void run(async () => { await api(base + "/invitations", "DELETE"); setLink(""); })}>Revoke invitation</Button>}
     </section>
     <section className="rounded-3xl border border-slate-200 bg-white p-7"><h2 className="text-xl font-semibold">Calendar sharing</h2>
-      <p className="my-4 text-sm text-slate-600">Calendars start private. Only the owner can change sharing. Private event restrictions will also apply when event views arrive.</p>
+      <p className="my-4 text-sm text-slate-600">Calendars start private. Only the owner can change sharing. Private events always appear as busy to other members.</p>
       {!calendars.length && <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">No connected calendars yet. Provider connections arrive in Phases 4–6.</p>}
       {calendars.map(c => <div key={c.id} className="my-4 rounded-xl border border-slate-200 p-4"><p className="font-semibold">{c.name}</p><p className="my-2 text-sm text-slate-500">{c.ownerName} · {c.provider}</p>
         {c.ownerId === userId ? <label className="text-sm">Sharing for {c.name}<select className="mt-2 block w-full rounded-lg border border-slate-300 p-3" value={c.mode} disabled={pending} onChange={e => { const mode = e.target.value; void run(async () => { await api(base + `/calendars/${c.id}`, "PUT", { mode }); }); }}>
           <option value="NOT_SHARED">Not shared</option><option value="BUSY_ONLY">Busy only</option><option value="FULL_DETAILS">Full details</option>
         </select></label> : <p className="text-sm">{c.mode === "BUSY_ONLY" ? "Busy only" : "Full details"}</p>}
+        {c.ownerId === userId && c.mode === "FULL_DETAILS" && <label className="mt-3 flex items-center gap-3 text-sm"><input className="!m-0 !w-auto" type="checkbox" checked={c.includeDescription} disabled={pending} onChange={e => {
+          const includeDescription = e.target.checked;
+          void run(async () => { await api(base + `/calendars/${c.id}`, "PUT", { mode: c.mode, includeDescription }); });
+        }} />Share descriptions for {c.name}</label>}
       </div>)}
     </section>
     <section className="rounded-3xl border border-slate-200 bg-white p-7"><h2 className="text-xl font-semibold">Leave this space</h2><p className="my-4 text-sm text-slate-600">Your calendar sharing is removed immediately. All invitation links are invalidated. If you are the last member, the space is deleted.</p>

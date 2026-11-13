@@ -18,11 +18,11 @@ authorizes starting the next one.
 - [x] Calendar sharing policies and cross-space authorization tests
 
 ## Phase 3 — Calendar dashboard
-- [ ] FullCalendar month/week/day/agenda and responsive sidebar
-- [ ] TanStack Query, filters, person colors, accessible event details, themes
-- [ ] Explicitly labeled mock adapters and realistic events
-- [ ] Server-side busy-only redaction and private-event restrictions
-- [ ] SSE invalidation contract and isolation tests
+- [x] FullCalendar month/week/day/agenda and responsive sidebar
+- [x] TanStack Query, filters, person colors, accessible event details, themes
+- [x] Explicitly labeled mock adapters and realistic events
+- [x] Server-side busy-only redaction and private-event restrictions
+- [x] SSE invalidation contract and isolation tests
 
 ## Phase 4 — Google
 - [ ] Read-only OAuth with state/PKCE, encrypted credentials and refresh

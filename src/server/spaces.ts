@@ -7,10 +7,10 @@ export class SpaceError extends Error {
 }
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 type Tx = Prisma.TransactionClient;
-async function lock(tx: Tx, spaceId: string) {
+export async function lock(tx: Tx, spaceId: string) {
   await tx.$queryRaw`SELECT id FROM shared_spaces WHERE id = ${spaceId}::uuid FOR UPDATE`;
 }
-async function member(tx: Tx, userId: string, spaceId: string) {
+export async function member(tx: Tx, userId: string, spaceId: string) {
   if (!await tx.sharedSpaceMember.findUnique({ where: { spaceId_userId: { spaceId, userId } } }))
     throw new SpaceError(404, "Shared space not found.");
 }
@@ -86,14 +86,14 @@ export async function leaveSpace(userId: string, spaceId: string) {
       await tx.sharedSpace.delete({ where: { id: spaceId } });
   });
 }
-export async function setSharing(userId: string, spaceId: string, calendarId: string, mode: SharingMode) {
+export async function setSharing(userId: string, spaceId: string, calendarId: string, mode: SharingMode, includeDescription = false) {
   return db.$transaction(async tx => {
     await lock(tx, spaceId); await member(tx, userId, spaceId);
     if (!await tx.calendar.findFirst({ where: { id: calendarId, connection: { userId } } }))
       throw new SpaceError(404, "Calendar not found.");
     await tx.calendarShare.upsert({
       where: { calendarId_spaceId: { calendarId, spaceId } },
-      create: { calendarId, spaceId, mode }, update: { mode },
+      create: { calendarId, spaceId, mode, includeDescription }, update: { mode, includeDescription },
     });
   });
 }
@@ -108,12 +108,12 @@ export async function visibleCalendars(userId: string, spaceId: string) {
       select: {
         id: true, name: true,
         connection: { select: { userId: true, provider: true, user: { select: { name: true } } } },
-        shares: { where: { spaceId }, select: { mode: true } },
+        shares: { where: { spaceId }, select: { mode: true, includeDescription: true } },
       }, orderBy: { name: "asc" },
     });
     return calendars.map(c => ({
       id: c.id, name: c.name, ownerId: c.connection.userId, ownerName: c.connection.user.name,
-      provider: c.connection.provider, mode: c.shares[0]?.mode ?? "NOT_SHARED",
+      provider: c.connection.provider, mode: c.shares[0]?.mode ?? "NOT_SHARED", includeDescription: c.shares[0]?.includeDescription ?? false,
     }));
   });
 }

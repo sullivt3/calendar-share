@@ -17,6 +17,7 @@ model User {
   accounts      Account[]
   memberships   SharedSpaceMember[]
   connections   ProviderConnection[]
+  preference    UserPreference?
   @@map("users")
 }
 model Session {
@@ -129,6 +130,9 @@ model Calendar {
   name         String
   connection   ProviderConnection @relation(fields: [connectionId], references: [id], onDelete: Cascade)
   shares       CalendarShare[]
+  events       Event[]
+  mockProvider Provider?
+  lastSyncedAt DateTime?
   @@unique([connectionId, externalId])
   @@map("calendars")
 }
@@ -136,9 +140,48 @@ model CalendarShare {
   calendarId String @db.Uuid
   spaceId    String @db.Uuid
   mode       SharingMode @default(NOT_SHARED)
+  includeDescription Boolean @default(false)
   calendar   Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
   space      SharedSpace @relation(fields: [spaceId], references: [id], onDelete: Cascade)
   @@id([calendarId, spaceId])
   @@index([spaceId])
   @@map("calendar_shares")
+}
+
+enum EventPrivacy {
+  PUBLIC
+  PRIVATE
+  CONFIDENTIAL
+}
+model Event {
+  id             String @id @default(uuid()) @db.Uuid
+  calendarId     String @db.Uuid
+  externalId     String
+  title          String
+  start          DateTime @db.Timestamptz(3)
+  end            DateTime @db.Timestamptz(3)
+  allDay         Boolean @default(false)
+  timeZone       String @default("UTC")
+  location       String?
+  description    String?
+  privacy        EventPrivacy @default(PRIVATE)
+  busy           Boolean @default(true)
+  cancelled      Boolean @default(false)
+  recurrenceRule String?
+  seriesId       String?
+  originalStart  DateTime? @db.Timestamptz(3)
+  exceptions     Json?
+  providerVersion String?
+  updatedAt      DateTime @updatedAt
+  calendar       Calendar @relation(fields: [calendarId], references: [id], onDelete: Cascade)
+  @@unique([calendarId, externalId])
+  @@index([calendarId, start, end])
+  @@map("events")
+}
+model UserPreference {
+  userId       String @id @db.Uuid
+  displayColor String?
+  theme        String @default("SYSTEM")
+  user         User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@map("user_preferences")
 }

@@ -1,12 +1,10 @@
 "use client";
 import { useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { loginSchema, registrationSchema } from "@/shared/auth";
 import { Button } from "./ui/button";
 export function AuthForm({ mode, redirectTo = "/dashboard" }: { mode: "login" | "register"; redirectTo?: "/dashboard" | "/invite" }) {
-  const router = useRouter();
   const register = mode === "register";
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
@@ -23,7 +21,7 @@ export function AuthForm({ mode, redirectTo = "/dashboard" }: { mode: "login" | 
         : await authClient.signIn.email(parsed.data);
       if (result.error) {
         setError(result.error.status === 429 ? "Too many attempts. Please try again in a minute." : register ? "Unable to create your account. Check your details or try logging in." : "Unable to log in. Check your email and password.");
-      } else { router.replace(redirectTo); router.refresh(); }
+      } else { window.location.replace(redirectTo); }
     } catch { setError("Unable to connect. Please try again."); }
     finally { setPending(false); }
   }

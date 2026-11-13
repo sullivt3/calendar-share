@@ -4,10 +4,23 @@ A shared calendar for users who connect their external calendars from Outlook,
 Google, and Apple. The application will provide a strictly read-only combined
 view: all event changes stay in the original provider.
 
-**Current release: Phase 2 shared accounts.** Registration, login/logout,
-private shared spaces, invitations, membership and calendar-sharing permissions
-are implemented. Events and provider connections are planned; this release does
-not connect to live calendars.
+**Current release: Phase 3 calendar dashboard.** Private spaces, invitations,
+sharing permissions and the read-only calendar dashboard are implemented.
+Open a space from your account dashboard to see its month, week, day or agenda
+view. Mobile starts in agenda. Use space settings to invite someone or change
+sharing, including a separate opt-in for descriptions.
+
+The calendar supports person/provider/calendar filters, event detail dialogs,
+person colors, persisted light/dark/system themes, local/UTC display, and
+automatic view updates. Private or busy-only events are redacted by the server
+before any response reaches another member.
+
+Real Google, Outlook and Apple connections are not implemented yet. For local
+testing, set `ENABLE_MOCK_CALENDARS=true` in `.env`, open a space's calendar and
+choose **Load my sample calendars**. Samples are always labeled, belong only to
+your account and start private. Each person must load and explicitly share
+their own calendars. Loading samples never connects to a provider or changes a
+sharing permission. It is idempotent and disabled in production.
 
 After login, create a space from your account dashboard. Generate a private
 invitation link from its settings page and share it with one other person.
@@ -15,12 +28,6 @@ Invitations expire in 24 hours and work once; issuing another link replaces the
 previous one. The recipient can log in or register in the same tab before
 accepting. Either member can rename or leave the space. Leaving removes their
 shares and invalidates invitation links; the last departure deletes the space.
-
-Calendar sharing settings start empty until provider integrations arrive.
-When calendars exist, their owner can choose Not shared, Busy only or Full
-details independently for each space. Calendars are private by default.
-Phase 2 tests exercise these rules using MOCK metadata, without pretending
-that provider connections or an event dashboard are available.
 
 ## Start with Docker
 
@@ -48,8 +55,8 @@ required. Ports 3000 and 5432 must be free.
 
 3. Open http://localhost:3000. Register a personal account or log in with
    `alex@example.test` or `sam@example.test` using your `DEMO_PASSWORD`.
-   Demo accounts contain no live calendars. Realistic mock calendar events
-   arrive in Phase 3.
+   Demo accounts contain no live calendars; sample calendars are loaded
+   explicitly from the calendar sidebar.
 
 Source changes under `src/` reload automatically. Rebuild after changing
 dependencies, Prisma or configuration. Compose uses a persistent PostgreSQL
@@ -114,13 +121,35 @@ cleanup. Browser tests require a database name ending in `_browser`; they
 reset auth rate-limit counters between cases to keep test users independent.
 This reset is guarded against ordinary database names. Integration tests
 exercise rate-limit enforcement separately. Desktop and mobile Chromium flows cover register/login/logout,
-protected navigation, and two separate users creating/joining/renaming/leaving
-a shared space. Browser traces may contain test input: use test-only
+protected navigation, two separate users creating/joining/renaming/leaving a shared space, event
+privacy, all four calendar views, filters, colors/themes and live data updates.
+Use `ENABLE_MOCK_CALENDARS=true` on the test app for sample-loader checks.
+Run browser tests after the production build, rather than concurrently, to
+avoid development compilation competing for Docker resources. Browser traces may contain test input: use test-only
 passwords and do not upload traces containing real credentials.
 
 For Docker-only checks, `docker compose exec app npm run <script>` runs tooling
 inside the app container. Browser testing uses the Playwright image matching the
 locked `@playwright/test` version or a native browser installation.
+
+## Live updates and limits
+
+SSE sends invalidation signals only. The server polls a fingerprint of each
+caller's authorized projection every three seconds, rechecks membership and
+session validity, and never streams event details. Connections reconnect after
+five minutes; the client also revalidates every minute and on focus. A manual
+**Refresh calendar view** reloads the authorized data without altering events.
+This is view synchronization with our database; provider ingestion and durable
+background jobs arrive in Phases 4–6.
+
+Queries are limited to 93 days and 2,000 events per response. Narrow the range
+if a large calendar exceeds that limit. All-day end dates are exclusive.
+Timed events retain original IANA timezone metadata and UTC instants; the
+dashboard can display local time or UTC. Sample recurring instances are
+materialized for eight weeks; provider recurrence expansion/exception handling
+will be validated during the provider phases. No events, credentials or
+invitation links are persisted in a browser query cache. Only the theme setting
+is stored in localStorage.
 
 ## Production build
 
