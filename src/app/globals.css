@@ -1,0 +1,10 @@
+@import "tailwindcss";
+:root { color-scheme: light; --background: #f7f9fc; --foreground: #172339; }
+body { background: var(--background); color: var(--foreground); font-family: Arial, Helvetica, sans-serif; }
+button, a, input { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), a { cursor: pointer; }
+input { width: 100%; border: 1px solid #cbd5e1; border-radius: .75rem; background: white; padding: .85rem 1rem; margin-top: .5rem; }
+input:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+.skip-link { position: absolute; left: -9999px; }
+.skip-link:focus { left: 1rem; top: 1rem; z-index: 50; background: white; padding: 1rem; }
+@media(max-width: 500px) { header > span { display: none; } }
