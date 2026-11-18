@@ -218,3 +218,48 @@ credentials/public notification endpoint were available, so live provider
 acceptance remains pending. See GOOGLE_SETUP.md for configuration, limits,
 key rotation and credentialed acceptance checks. This supersedes the earlier
 phase-specific statements that all provider ingestion is future work.
+
+## Phase 5 — initial Microsoft protocol foundation
+
+The server-only Microsoft client uses delegated Calendars.Read, fixed public-cloud
+Microsoft authorities, S256 PKCE authorization and POST-only token exchange/refresh.
+Graph continuation links must retain the exact original resource path and HTTPS
+origin before requests or persistence. Redirects cannot forward bearer credentials.
+Primary calendar delta and secondary calendarView reconciliation remain distinct;
+mailbox-wide basic subscriptions invalidate caches without accepting event bodies.
+The adapter strips unused response fields and returns sanitized failure codes.
+The full OAuth, durable worker, webhook and account-control integration built on
+this boundary is described below; see PHASE5_PLAN.md for verification.
+
+## Phase 5 — Microsoft integration
+
+The initial protocol foundation is now wired through OAuth, account controls,
+worker jobs, verified webhook ingestion and normalization. OAuthAttempt records
+carry a provider discriminator (default GOOGLE for existing attempts) and hashed
+Microsoft OIDC nonce. PKCE contexts are provider-bound. Code exchange is single-use,
+and the actual session is checked again before installing encrypted credentials.
+Microsoft identity is the verified tenant/object-ID pair; email is display only.
+
+The common worker dispatches by provider while retaining existing connection
+leases, fencing, request-version coalescing and persisted backoff. Primary calendars
+use Graph v1.0 calendarView delta; secondary calendars use bounded replacement
+snapshots. Source pages and encrypted continuation checkpoints survive interruption;
+committed delta links advance only after materialization. Invalid cursors rebuild.
+The rolling coverage is 183 days past/548 future for all Microsoft events, with
+fresh snapshots as the daily window changes. Immutable IDs are requested consistently.
+Unicode CLDR maps Windows zones; all-day dates are recovered in the original zone.
+
+Basic subscriptions are attached to selected calendars and watch the owned mailbox's
+events for invalidation. Stored clientState hashes, remote subscription IDs,
+tenant/resource identities, account status and calendar selection gate notifications.
+Validation challenges are bounded plain text; notification bodies are bounded to
+64 KiB/100 notices. Lifecycle events trigger reconciliation/replacement. Unknown
+subscription create outcomes retain pending state to avoid duplicate subscriptions;
+15-minute polling continues. No notification payload is accepted as event data.
+
+Microsoft disconnect stops known subscriptions and purges local credentials; it
+never revokes all user sessions. Remaining consent removal is explicitly guided
+in the UI. All owner mutations and existing privacy/sharing checks are reused.
+No real provider credentials are present: live personal/work tenant acceptance is
+pending and must not be inferred from the mocked integration suite. See
+MICROSOFT_SETUP.md for exact configuration, fallback behavior and limitations.

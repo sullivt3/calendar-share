@@ -13,7 +13,14 @@ export async function enqueue(tx: Tx, kind: SyncJobKind, connectionId: string, c
     update: { requestVersion: { increment: 1 } } });
 }
 export async function ensureJob(kind: SyncJobKind, connectionId: string, calendarId?: string | null) {
-  await db.syncJob.createMany({ data: [{ connectionId, calendarId: calendarId ?? null, kind, dedupeKey: jobKey(kind, connectionId, calendarId) }], skipDuplicates: true });
+  await db.$transaction(async tx => {
+    // Acquire the parent before inserting the job: FK key-share locks taken after
+    // an insert could otherwise deadlock a webhook holding this connection row.
+    await tx.$queryRaw`SELECT id FROM provider_connections WHERE id = ${connectionId}::uuid FOR UPDATE`;
+    const connection = await tx.providerConnection.findUnique({ where: { id: connectionId } });
+    if (!connection || !["CONNECTED", "ERROR"].includes(connection.status)) return;
+    await tx.syncJob.createMany({ data: [{ connectionId, calendarId: calendarId ?? null, kind, dedupeKey: jobKey(kind, connectionId, calendarId) }], skipDuplicates: true });
+  });
 }
 export async function claimJob(): Promise<JobLease | null> {
   return db.$transaction(async tx => {

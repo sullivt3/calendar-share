@@ -28,9 +28,9 @@ export async function completeGoogleOAuth(userId: string, sessionId: string, inp
   if (!/^[a-zA-Z0-9_-]{43}$/.test(input.state) || !input.browser || (input.code?.length ?? 0) > 4096)
     throw new SpaceError(400, "This connection attempt is invalid or expired.");
   const attempt = await db.oAuthAttempt.findUnique({ where: { stateHash: secretHash(input.state) } });
-  if (!attempt || attempt.userId !== userId || attempt.sessionId !== sessionId || attempt.expiresAt <= new Date() || !secretMatches(input.browser, attempt.browserHash))
+  if (!attempt || attempt.provider !== "GOOGLE" || attempt.userId !== userId || attempt.sessionId !== sessionId || attempt.expiresAt <= new Date() || !secretMatches(input.browser, attempt.browserHash))
     throw new SpaceError(400, "This connection attempt is invalid or expired.");
-  const consumed = await db.oAuthAttempt.deleteMany({ where: { id: attempt.id, expiresAt: { gt: new Date() } } });
+  const consumed = await db.oAuthAttempt.deleteMany({ where: { id: attempt.id, provider: "GOOGLE", expiresAt: { gt: new Date() } } });
   if (consumed.count !== 1) throw new SpaceError(400, "This connection attempt is invalid or expired.");
   if (input.denied) return { denied: true };
   if (!input.code) throw new SpaceError(400, "This connection attempt is invalid or expired.");

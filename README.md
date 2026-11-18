@@ -4,7 +4,7 @@ A shared calendar for users who connect their external calendars from Outlook,
 Google, and Apple. The application will provide a strictly read-only combined
 view: all event changes stay in the original provider.
 
-**Current release: Phase 4 Google integration (mock-verified; live validation pending).** Private spaces, invitations,
+**Current release: Phase 5 Google and Outlook integrations (mock-verified; live validation pending).** Private spaces, invitations,
 sharing permissions and the read-only calendar dashboard are implemented.
 Open a space from your account dashboard to see its month, week, day or agenda
 view. Mobile starts in agenda. Use space settings to invite someone or change
@@ -15,9 +15,10 @@ person colors, persisted light/dark/system themes, local/UTC display, and
 automatic view updates. Private or busy-only events are redacted by the server
 before any response reaches another member.
 
-Google connections can be configured using [the setup guide](docs/GOOGLE_SETUP.md).
-No live Google credentials were available for this phase; automated provider
-tests use mocks. Outlook and Apple connections remain planned. For local
+Google connections can be configured using [the Google setup guide](docs/GOOGLE_SETUP.md);
+Microsoft personal/work connections use [the Outlook setup guide](docs/MICROSOFT_SETUP.md).
+No live provider credentials were available for acceptance testing; provider
+network tests use mocks. Apple connections remain planned. For local
 testing, set `ENABLE_MOCK_CALENDARS=true` in `.env`, open a space's calendar and
 choose **Load my sample calendars**. Samples are always labeled, belong only to
 your account and start private. Each person must load and explicitly share
@@ -71,7 +72,7 @@ docker compose down
 ```
 
 `docker compose down -v` also destroys local database data; use only when you
-intend to reset it. The worker processes durable Google discovery, sync, notification renewal and
+intend to reset it. The worker processes durable Google/Microsoft discovery, sync, notification renewal and
 revocation jobs. Unconfigured installations can still use labeled local samples.
 
 ## Native Node development
@@ -103,7 +104,7 @@ npm run build
 Integration tests use the configured real PostgreSQL database and create/delete
 uniquely named test users. **Use a disposable test database**, never production.
 They exercise actual Better Auth request handlers and durable sync/database
-operations. Google network responses use injected provider fixtures.
+operations. Google and Microsoft network responses use injected provider fixtures.
 Supply `DATABASE_URL`, `BETTER_AUTH_URL`, and `BETTER_AUTH_SECRET` to the test
 process. With Node 22, use
 `node --env-file=.env node_modules/vitest/vitest.mjs run --config vitest.integration.config.ts`.
@@ -142,7 +143,7 @@ caller's authorized projection every three seconds, rechecks membership and
 session validity, and never streams event details. Connections reconnect after
 five minutes; the client also revalidates every minute and on focus. A manual
 **Refresh calendar view** reloads the authorized data without altering events.
-Google ingestion uses durable jobs, verified change notifications and 15-minute
+Google and Microsoft ingestion use durable jobs, verified change notifications and 15-minute
 reconciliation. See the setup guide for recurrence coverage and provider limits.
 
 Queries are limited to 93 days and 2,000 events per response. Narrow the range
@@ -150,7 +151,7 @@ if a large calendar exceeds that limit. All-day end dates are exclusive.
 Timed events retain original IANA timezone metadata and UTC instants; the
 dashboard can display local time or UTC. Sample recurring instances are
 materialized for eight weeks; Google recurring instances use a rolling six-month past/eighteen-month future
-window; the UI shows exact coverage. No events, credentials or
+window; the UI shows exact coverage. All Outlook events use this bounded window. No events, credentials or
 invitation links are persisted in a browser query cache. Only the theme setting
 is stored in localStorage.
 
@@ -168,13 +169,14 @@ are Phase 7 deliverables. Email verification and password recovery are not yet
 configured. Do not expose this foundation release as a public production
 service.
 
-The auth account table is used only for hashed application passwords. Google calendar
+The auth account table is used only for hashed application passwords. Provider calendar
 credentials use a separate encrypted provider-connection store. Never put secrets in `NEXT_PUBLIC_*` variables or logs.
 Production secrets belong in a secret manager, with database credentials and
 encryption keys managed separately.
 
 ## Project documentation
 
+- [Microsoft setup and pending live checks](docs/MICROSOFT_SETUP.md)
 - [Google setup and pending live checks](docs/GOOGLE_SETUP.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Phase checklist](docs/ROADMAP.md)

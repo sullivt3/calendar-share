@@ -149,6 +149,7 @@ model Calendar {
   mockProvider Provider?
   lastSyncedAt DateTime?
   timeZone String @default("UTC")
+  isPrimary Boolean @default(false)
   isEnabled Boolean @default(true)
   syncEnabled Boolean @default(false)
   nextSyncAt DateTime @default(now())
@@ -236,6 +237,8 @@ enum SyncPhase {
   MATERIALIZE
 }
 model OAuthAttempt {
+  provider Provider @default(GOOGLE)
+  nonceHash String?
   id String @id @default(uuid()) @db.Uuid
   userId String @db.Uuid
   sessionId String @db.Uuid

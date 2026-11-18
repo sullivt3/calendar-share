@@ -33,10 +33,16 @@ authorizes starting the next one.
 - [ ] Credentialed provider validation (unavailable; user chose mocked tests)
 
 ## Phase 5 — Microsoft
-- [ ] Personal/work OAuth, read-only Graph access and policy errors
-- [ ] Discovery, delta sync, recurrence and deletion handling
-- [ ] Verified change subscriptions, renewal, refresh and reconciliation
-- [ ] Mocked failure/retry coverage and credentialed live validation
+
+See [implementation sequence](PHASE5_PLAN.md) and [setup guide](MICROSOFT_SETUP.md).
+Implementation and mocked verification complete. Live provider acceptance is pending.
+
+- [x] Read-only Graph protocol foundation with mocked adapter tests
+- [x] Personal/work OAuth, read-only Graph access and policy errors
+- [x] Discovery, primary delta/secondary snapshots, recurrence and deletion handling
+- [x] Verified change subscriptions, renewal, refresh and reconciliation
+- [x] Mocked failure/retry coverage and Google regression tests
+- [ ] Credentialed personal/work live validation (credentials/HTTPS pending)
 
 ## Phase 6 — Apple
 - [ ] App-password guidance and encrypted server-side CalDAV credentials

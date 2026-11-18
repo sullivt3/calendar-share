@@ -2,75 +2,87 @@
 
 ## Active scope
 
-Phase 3 was committed and pushed as `dfa39f0` to origin/master. Phase 4 Google
-integration is implemented with mocked provider verification. The user requested
-mocked provider tests because no Google OAuth client/public HTTPS endpoint exists.
-Stop before Phase 5 until explicitly authorized.
+Phase 4 is committed/pushed as `f1fc362` on origin/master. Phase 5 Microsoft
+integration is implemented with mocked provider verification.
+Stop before Phase 6 until explicitly authorized.
+Neither Google nor Microsoft has credentialed live acceptance validation.
 
-## Phase 4 implemented
+## Phase 5 implemented
 
-- Owner-only Google account page, calendar discovery/import selection, manual sync,
-  clear setup/error/coverage status and disconnect confirmations.
-- Read-only OAuth with offline access, single-use state, PKCE, browser/session
-  binding, verified Google identity and fixed safe callback outcomes.
-- Versioned authenticated credential/cursor/verifier encryption, context binding,
-  token refresh and revoked-grant handling. No browser credentials or event writes.
-- Durable PostgreSQL jobs with deduplication, connection serialization, expiring
-  leases/heartbeat/fencing, retries, quota backoff and crash-resumable pagination.
-- Full/incremental Google source ingestion and normalized event projection,
-  authoritative recurrence instances/exceptions, timezone/DST/all-day handling,
-  updates/deletions and invalid-cursor replacement imports.
-- Verified early/replayed notifications, channel renewal/retirement, pending
-  transport-outcome handling and periodic polling/discovery reconciliation.
-- Immediate local event/share removal on deselection/disconnect, durable remote
-  revocation and bounded failure cleanup with explicit guidance.
-- Existing sharing/privacy and dashboard SSE invalidations apply to imported data.
+- Microsoft personal/work delegated read-only OAuth with S256 PKCE, provider-bound
+  single-use state, hashed browser/nonce secrets and session checks after exchange.
+- Real RS256 ID-token verification: signing-key issuer scope, tenant, issuer,
+  audience, object ID, nonce, version and lifetime. Email is display-only.
+- Versioned authenticated encryption for credentials/cursors; refresh rotation,
+  read-only scope validation and revoked/organization-policy handling.
+- Owned calendar discovery/import selection, default privacy, manual sync,
+  per-provider account controls, setup/status/help and disconnect confirmations.
+- Provider-dispatched durable worker, connection leases/heartbeat/fencing,
+  coalesced jobs, checkpointed pages, backoff/Retry-After and quota recovery.
+- Primary calendar Graph v1.0 delta, secondary calendarView snapshot reconciliation,
+  expanded recurrence/exceptions, sensitivity and deletion/cancellation handling.
+- UTC instants, original Windows/IANA zones via Unicode CLDR, exclusive all-day
+  dates/DST and a visible 183-day past/548-day future coverage window.
+- Verified bounded webhook ingestion and validation challenges, subscription
+  renewal, lifecycle recovery, uncertain create handling and 15-minute fallback.
+- Immediate local event/share removal on deselection/disconnect; durable bounded
+  subscription cleanup and token purge, with separate external consent guidance.
+- Recovery when the primary designation changes or invalid source data is fixed.
+- Scheduler and notification job inserts serialize connection-before-job locks,
+  including foreign-key lock acquisition, preventing a reproducible insertion race.
 
-Recurring coverage is bounded to 183 days behind/548 days ahead, shown in the UI.
-Source/materialization limits fail visibly. See GOOGLE_SETUP.md for exact
-configuration, operating limits, key rotation and live acceptance checks.
+Shared/delegated/group mailboxes are excluded; only the signed-in user's owned
+mailbox calendars are eligible. There are no event-write methods, application-wide
+permissions, global Microsoft sign-out/revokeSignInSessions calls, or fake live
+provider switches. See MICROSOFT_SETUP.md for configuration and exact limitations.
 
-## Verification
+## Phase 5 verification
 
-- Lint and strict TypeScript checks passed.
-- All 24 unit tests passed, including encryption, read-only gateway/scopes and normalization.
-- All 37 database/API tests passed, including OAuth binding/replay, encrypted refresh,
-  resumable pagination, recurrence/DST/updates/deletions, expired cursors, quota
-  backoff, leases/fencing, notification verification/replay/renewal and cleanup races.
-- All 10 desktop/mobile browser/HTTP cases passed: 6 existing regression cases,
-  both account-management cases in a focused rerun after correcting asynchronous
-  checkbox assertions, and both real callback-header/redirect checks. Desktop/mobile
-  account screenshots were visually reviewed.
-- Dependency audit reported zero known vulnerabilities.
-- Production build passed, including a final build of the privacy fixes. A later
-  callback-specific global-header override passed real Next HTTP checks; the route
-  handler test alone did not detect the original global override.
+- Lint and strict TypeScript passed.
+- All 39 unit tests passed, including gateway, JWT signatures/claims, encryption,
+  privacy and timezone/all-day normalization cases.
+- All 57 real-database/API tests passed, including Google regressions, Microsoft
+  OAuth binding/replay/isolation, refresh, page resume, delta/snapshot/deletion,
+  expired cursors, quota/backoff, revocation, notifications/lifecycle/renewal,
+  uncertain creation, privacy, cleanup, correction recovery and concurrent inserts.
+- All 14 desktop/mobile browser/HTTP cases passed: authentication, sharing,
+  calendar views/live updates/privacy, Google and Microsoft account controls,
+  and both providers' real Next callback privacy headers/redirects.
+- Two desktop navigation cases timed out during cold development compilation;
+  both passed in a focused warm rerun without application or test changes.
+- Desktop/mobile Microsoft account screenshots were visually reviewed.
+- Production build and production dependency audit passed (zero vulnerabilities).
+  The final build of the queue/recovery changes also passed.
 
-The first Docker browser run required a QA-container-only Next dev-origin setting;
-repository origin controls were unchanged. Google requests use injected test
-fixtures; runtime endpoints remain fixed to Google. No live Google consent, token exchange/refresh, calendar
-read, notification delivery or channel renewal has been validated.
+Provider network responses are mocked; identity tests verify real JWT signatures.
+No live Google/Microsoft consent, refresh, provider read, notification delivery or
+subscription renewal is claimed. Follow each setup guide's pending live checklist.
 
-## Local use
+## Existing Phase 4 behavior retained
 
-The existing sandbox is upgraded to Phase 4 at http://localhost:3100, with preserved
-accounts/data and labeled sample calendars. Its location is
-/private/tmp/calendar-share-sandbox-luk8kcc9; credentials are in SANDBOX.md there.
-Both original demo logins, private-space reads, account pages and logout passed
-post-upgrade checks. App/database health and the durable worker startup passed.
-No real Google credentials or test-provider records were installed in this sandbox.
+Google OAuth, encrypted credentials, discovery, read-only recurrence/incremental
+sync, push channel verification/renewal, durable retries and disconnection remain
+implemented. Existing source/privacy, bounded API reads, preferences, membership,
+invitation, sample-loader and authenticated SSE regressions continue to pass.
 
-Before migration, the database was backed up with restricted permissions to
-/private/tmp/calendar-share-sandbox-luk8kcc9-backups/before-phase4.sql.
-The previous image is retained as calendar-share-sandbox:luk8kcc9-phase3.
-Earlier backups/images remain available. Disposable verification services and
-databases are removed after checks; the user sandbox remains running.
+## Local sandbox and handoff
 
-Google setup is optional. An unconfigured installation reports that state and
-cannot initiate consent. Samples never authorize a provider. To enable Google,
-follow docs/GOOGLE_SETUP.md; credentials must be configured in both app and worker.
+The existing sandbox remains available at http://localhost:3100 in
+/private/tmp/calendar-share-sandbox-luk8kcc9. Both original demo logins, calendar
+pages/event APIs, private reads, unauthorized rejection, logout and callback
+headers passed the pre-Phase-5 check. Credentials remain in its SANDBOX.md.
+The sandbox uses Phase 5 source with existing accounts/data retained. Post-upgrade
+checks passed for both original logins, calendar/event reads, account pages,
+unauthenticated rejection, logout, both callback privacy headers, unconfigured
+Microsoft start rejection and Microsoft webhook validation. App/database health
+and the durable worker startup also passed.
+No real provider credentials or test-provider records are installed there.
 
-## Remaining phases
+Before upgrade, the database was backed up with restricted permissions to
+/private/tmp/calendar-share-sandbox-luk8kcc9-backups/before-phase5.sql.
+The prior image is retained as calendar-share-sandbox:luk8kcc9-phase4.
+Older backups/images remain available. Disposable verification databases/services
+are removed after checks; the user sandbox remains running.
 
-Microsoft is Phase 5; Apple is Phase 6. Public production deployment, recovery,
-email verification/reset, account deletion and PWA hardening remain Phase 7.
+Apple/CalDAV is Phase 6. Account deletion, public production deployment, email
+verification/reset, PWA, recovery and further hardening remain Phase 7.

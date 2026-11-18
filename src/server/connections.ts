@@ -1,20 +1,21 @@
 import { db } from "./db";
 import { SpaceError } from "./spaces";
 import { enqueue, jobKey } from "./sync/queue";
+import { microsoftConfigured, microsoftWebhookAddress } from "./microsoft/config";
 import { googleConfigured, webhookAddress } from "./google/config";
 
 export async function listConnections(userId: string) {
-  const connections = await db.providerConnection.findMany({ where: { userId, provider: "GOOGLE" }, orderBy: { id: "asc" },
-    select: { id: true, accountLabel: true, status: true, lastErrorCode: true, nextAllowedAt: true,
-      calendars: { orderBy: { name: "asc" }, select: { id: true, name: true, timeZone: true, isEnabled: true,
+  const connections = await db.providerConnection.findMany({ where: { userId, provider: { in: ["GOOGLE", "MICROSOFT"] } }, orderBy: { id: "asc" },
+    select: { id: true, provider: true, accountLabel: true, status: true, lastErrorCode: true, nextAllowedAt: true,
+      calendars: { orderBy: { name: "asc" }, select: { id: true, name: true, timeZone: true, isPrimary: true, isEnabled: true,
         syncEnabled: true, lastSyncedAt: true, lastErrorCode: true,
         syncState: { select: { phase: true, windowStart: true, windowEnd: true } },
         subscriptions: { where: { status: "ACTIVE", expiresAt: { gt: new Date() } }, select: { expiresAt: true } },
       } },
       jobs: { select: { kind: true, status: true, runAt: true, lastErrorCode: true } },
     } });
-  return { googleConfigured: googleConfigured(), pushConfigured: !!webhookAddress(), connections: connections.map(connection => ({
-    ...connection, nextAllowedAt: connection.nextAllowedAt.toISOString(),
+  return { microsoftConfigured: microsoftConfigured(), microsoftPushConfigured: !!microsoftWebhookAddress(), googleConfigured: googleConfigured(), pushConfigured: !!webhookAddress(), connections: connections.map(connection => ({
+    ...connection, provider: connection.provider === "MICROSOFT" ? "MICROSOFT" as const : "GOOGLE" as const, nextAllowedAt: connection.nextAllowedAt.toISOString(),
     jobs: connection.jobs.map(job => ({ ...job, runAt: job.runAt.toISOString() })),
     calendars: connection.calendars.map(calendar => ({
       ...calendar, lastSyncedAt: calendar.lastSyncedAt?.toISOString() ?? null,
@@ -26,7 +27,7 @@ export async function listConnections(userId: string) {
 export async function requestDiscovery(userId: string, connectionId: string) {
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM provider_connections WHERE id = ${connectionId}::uuid FOR UPDATE`;
-    const connection = await tx.providerConnection.findFirst({ where: { id: connectionId, userId, provider: "GOOGLE", status: { in: ["CONNECTED", "ERROR"] } } });
+    const connection = await tx.providerConnection.findFirst({ where: { id: connectionId, userId, provider: { in: ["GOOGLE", "MICROSOFT"] }, status: { in: ["CONNECTED", "ERROR"] } } });
     if (!connection) throw new SpaceError(404, "Connection not found.");
     if (connection.lastManualSyncAt && connection.lastManualSyncAt.getTime() > Date.now() - 10000)
       throw new SpaceError(429, "Please wait a few seconds before requesting another sync.");
@@ -45,10 +46,10 @@ export async function requestDiscovery(userId: string, connectionId: string) {
     }
   });
 }
-export async function selectGoogleCalendar(userId: string, connectionId: string, calendarId: string, enabled: boolean) {
+export async function selectProviderCalendar(userId: string, connectionId: string, calendarId: string, enabled: boolean) {
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM provider_connections WHERE id = ${connectionId}::uuid FOR UPDATE`;
-    const connection = await tx.providerConnection.findFirst({ where: { id: connectionId, userId, provider: "GOOGLE", status: { in: ["CONNECTED", "ERROR"] } } });
+    const connection = await tx.providerConnection.findFirst({ where: { id: connectionId, userId, provider: { in: ["GOOGLE", "MICROSOFT"] }, status: { in: ["CONNECTED", "ERROR"] } } });
     if (!connection) throw new SpaceError(404, "Connection not found.");
     const calendar = await tx.calendar.findFirst({ where: { id: calendarId, connectionId, isEnabled: true } });
     if (!calendar) throw new SpaceError(404, "Calendar not found.");
@@ -63,10 +64,10 @@ export async function selectGoogleCalendar(userId: string, connectionId: string,
     await enqueue(tx, "WATCH", connectionId, calendarId);
   });
 }
-export async function disconnectGoogle(userId: string, connectionId: string) {
+export async function disconnectProvider(userId: string, connectionId: string) {
   return db.$transaction(async tx => {
     await tx.$queryRaw`SELECT id FROM provider_connections WHERE id = ${connectionId}::uuid FOR UPDATE`;
-    const connection = await tx.providerConnection.findFirst({ where: { id: connectionId, userId, provider: "GOOGLE" } });
+    const connection = await tx.providerConnection.findFirst({ where: { id: connectionId, userId, provider: { in: ["GOOGLE", "MICROSOFT"] } } });
     if (!connection) throw new SpaceError(404, "Connection not found.");
     if (connection.status === "DISCONNECTED") return;
     await tx.providerConnection.update({ where: { id: connectionId }, data: { status: "DISCONNECTING",
@@ -80,3 +81,7 @@ export async function disconnectGoogle(userId: string, connectionId: string) {
     await enqueue(tx, "DISCONNECT", connectionId);
   });
 }
+
+// Existing server callers retain the same ownership and mutation checks.
+export const selectGoogleCalendar = selectProviderCalendar;
+export const disconnectGoogle = disconnectProvider;
